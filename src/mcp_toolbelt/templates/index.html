@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MCP Toolbelt</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: system-ui, sans-serif; margin: 0; padding: 20px; background: #1a1a2e; color: #eee; }
+        h1 { margin: 0 0 20px; color: #00d4ff; }
+        h2 { color: #00d4ff; margin: 20px 0 10px; font-size: 1.1em; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .panel { background: #16213e; border-radius: 8px; padding: 15px; }
+        .endpoint { background: #0f3460; padding: 10px; border-radius: 4px; font-family: monospace; margin-bottom: 15px; }
+        input, textarea { width: 100%; padding: 8px; border: 1px solid #333; border-radius: 4px; background: #0f0f23; color: #eee; font-family: monospace; }
+        textarea { min-height: 100px; resize: vertical; }
+        button { background: #00d4ff; color: #000; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin: 5px 5px 5px 0; }
+        button:hover { background: #00b8e6; }
+        button.danger { background: #e94560; color: #fff; }
+        .log-entry { background: #0f0f23; margin: 5px 0; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 0.85em; border-left: 3px solid #00d4ff; }
+        .log-entry.incoming { border-left-color: #4ade80; }
+        .log-entry.outgoing { border-left-color: #f59e0b; }
+        .log-entry.proxy_out { border-left-color: #a855f7; }
+        .log-entry.proxy_in { border-left-color: #ec4899; }
+        .log-meta { color: #888; font-size: 0.8em; margin-bottom: 5px; }
+        .log-content { white-space: pre-wrap; word-break: break-all; }
+        .logs-container { max-height: 500px; overflow-y: auto; }
+        .tool-item { background: #0f0f23; padding: 10px; margin: 5px 0; border-radius: 4px; }
+        .tool-name { font-weight: bold; color: #00d4ff; }
+        label { display: block; margin: 10px 0 5px; color: #888; font-size: 0.9em; }
+        .status { padding: 5px 10px; border-radius: 4px; display: inline-block; margin-left: 10px; font-size: 0.8em; }
+        .status.active { background: #4ade80; color: #000; }
+        .status.inactive { background: #6b7280; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>MCP Toolbelt</h1>
+        <div class="endpoint">
+            MCP Endpoint: <strong>http://127.0.0.1:8765/mcp</strong>
+        </div>
+
+        <div class="grid">
+            <div>
+                <div class="panel">
+                    <h2>Proxy Mode
+                        {% if proxy_target %}
+                        <span class="status active">Active</span>
+                        {% else %}
+                        <span class="status inactive">Inactive</span>
+                        {% endif %}
+                    </h2>
+                    <p style="color:#888;font-size:0.9em;">Forward requests to another MCP server and trace all calls.</p>
+                    <input type="text" id="proxy-url" placeholder="https://remote-mcp-server.com/mcp" value="{{ proxy_target or '' }}">
+                    <button onclick="setProxy()">Set Proxy Target</button>
+                    <button class="danger" onclick="clearProxy()">Clear</button>
+                </div>
+
+                <div class="panel">
+                    <h2>Mock Tools</h2>
+                    <p style="color:#888;font-size:0.9em;">Define custom tools with mocked responses.</p>
+
+                    <label>Tool Name</label>
+                    <input type="text" id="tool-name" placeholder="my_tool">
+
+                    <label>Description</label>
+                    <input type="text" id="tool-desc" placeholder="Description of the tool">
+
+                    <label>Input Schema (JSON)</label>
+                    <textarea id="tool-schema">{"type": "object", "properties": {"input": {"type": "string"}}, "required": ["input"]}</textarea>
+
+                    <label>Mock Response (JSON or string)</label>
+                    <textarea id="tool-response">{"result": "mocked!"}</textarea>
+
+                    <button onclick="saveMockTool()">Save Mock Tool</button>
+
+                    <h2>Existing Mock Tools</h2>
+                    {% for tool in mock_tools %}
+                    <div class="tool-item">
+                        <span class="tool-name">{{ tool.name }}</span>
+                        <span style="color:#888;margin-left:10px;">{{ tool.description }}</span>
+                        <button class="danger" style="float:right;padding:4px 8px;" onclick="deleteTool('{{ tool.name }}')">Delete</button>
+                    </div>
+                    {% else %}
+                    <p style="color:#666;">No mock tools configured.</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>Request Logs <button onclick="refreshLogs()" style="padding:4px 8px;">Refresh</button> <button class="danger" onclick="clearLogs()" style="padding:4px 8px;">Clear</button></h2>
+                <div class="logs-container" id="logs">
+                    {% for log in logs %}
+                    <div class="log-entry {{ log.direction }}">
+                        <div class="log-meta">
+                            <strong>{{ log.direction }}</strong> | {{ log.method }} | {{ log.timestamp }} | session: {{ log.session_id[:8] if log.session_id else 'N/A' }}...
+                        </div>
+                        <div class="log-content">{% if log.params %}params: {{ log.params }}{% endif %}
+{% if log.result %}result: {{ log.result }}{% endif %}
+{% if log.error %}error: {{ log.error }}{% endif %}</div>
+                    </div>
+                    {% else %}
+                    <p style="color:#666;">No logs yet. Connect an MCP client to see requests.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function setProxy() {
+            const url = document.getElementById('proxy-url').value;
+            await fetch('/api/proxy/set', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({url})
+            });
+            location.reload();
+        }
+
+        async function clearProxy() {
+            await fetch('/api/proxy/set', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({url: null})
+            });
+            location.reload();
+        }
+
+        async function saveMockTool() {
+            const name = document.getElementById('tool-name').value;
+            const description = document.getElementById('tool-desc').value;
+            let input_schema, mock_response;
+            try {
+                input_schema = JSON.parse(document.getElementById('tool-schema').value);
+                mock_response = JSON.parse(document.getElementById('tool-response').value);
+            } catch(e) {
+                alert('Invalid JSON: ' + e.message);
+                return;
+            }
+            await fetch('/api/mock-tools', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({name, description, input_schema, mock_response})
+            });
+            location.reload();
+        }
+
+        async function deleteTool(name) {
+            await fetch('/api/mock-tools/' + encodeURIComponent(name), {method: 'DELETE'});
+            location.reload();
+        }
+
+        async function refreshLogs() {
+            location.reload();
+        }
+
+        async function clearLogs() {
+            await fetch('/api/logs/clear', {method: 'POST'});
+            location.reload();
+        }
+    </script>
+</body>
+</html>
