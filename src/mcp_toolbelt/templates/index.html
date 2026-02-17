@@ -1,105 +1,271 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MCP Toolbelt</title>
     <style>
-        * { box-sizing: border-box; }
-        body { font-family: system-ui, sans-serif; margin: 0; padding: 20px; background: #1a1a2e; color: #eee; }
-        h1 { margin: 0 0 20px; color: #00d4ff; }
-        h2 { color: #00d4ff; margin: 20px 0 10px; font-size: 1.1em; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .panel { background: #16213e; border-radius: 8px; padding: 15px; }
-        .endpoint { background: #0f3460; padding: 10px; border-radius: 4px; font-family: monospace; margin-bottom: 15px; }
-        input, textarea { width: 100%; padding: 8px; border: 1px solid #333; border-radius: 4px; background: #0f0f23; color: #eee; font-family: monospace; }
-        textarea { min-height: 100px; resize: vertical; }
-        button { background: #00d4ff; color: #000; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin: 5px 5px 5px 0; }
-        button:hover { background: #00b8e6; }
-        button.danger { background: #e94560; color: #fff; }
-        .log-entry { background: #0f0f23; margin: 5px 0; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 0.85em; border-left: 3px solid #00d4ff; }
-        .log-entry.incoming { border-left-color: #4ade80; }
-        .log-entry.outgoing { border-left-color: #f59e0b; }
-        .log-entry.proxy_out { border-left-color: #a855f7; }
-        .log-entry.proxy_in { border-left-color: #ec4899; }
-        .log-meta { color: #888; font-size: 0.8em; margin-bottom: 5px; }
-        .log-content { white-space: pre-wrap; word-break: break-all; }
-        .logs-container { max-height: 500px; overflow-y: auto; }
-        .tool-item { background: #0f0f23; padding: 10px; margin: 5px 0; border-radius: 4px; }
-        .tool-name { font-weight: bold; color: #00d4ff; }
-        label { display: block; margin: 10px 0 5px; color: #888; font-size: 0.9em; }
-        .status { padding: 5px 10px; border-radius: 4px; display: inline-block; margin-left: 10px; font-size: 0.8em; }
-        .status.active { background: #4ade80; color: #000; }
-        .status.inactive { background: #6b7280; }
+        :root {
+            --background: #ffffff;
+            --foreground: #0a0a0a;
+            --muted: #f4f4f5;
+            --muted-foreground: #71717a;
+            --border: #e4e4e7;
+            --primary: #18181b;
+            --primary-foreground: #fafafa;
+            --destructive: #ef4444;
+            --accent: #f4f4f5;
+            --radius: 6px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--background);
+            color: var(--foreground);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+        .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+        header { margin-bottom: 24px; }
+        h1 { font-size: 24px; font-weight: 600; letter-spacing: -0.025em; }
+        h2 { font-size: 14px; font-weight: 500; color: var(--foreground); margin-bottom: 12px; }
+        .subtitle { color: var(--muted-foreground); font-size: 14px; margin-top: 4px; }
+        .endpoint-bar {
+            background: var(--muted);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 12px 16px;
+            font-family: "SF Mono", Monaco, monospace;
+            font-size: 13px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .endpoint-bar code { font-weight: 500; }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+        .badge.active { background: #dcfce7; color: #166534; }
+        .badge.inactive { background: var(--muted); color: var(--muted-foreground); }
+        .grid { display: grid; grid-template-columns: 380px 1fr; gap: 24px; }
+        .card {
+            background: var(--background);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+        }
+        .card + .card { margin-top: 16px; }
+        label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+        input, textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            font-size: 13px;
+            font-family: "SF Mono", Monaco, monospace;
+            background: var(--background);
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: var(--foreground);
+            box-shadow: 0 0 0 3px rgba(0,0,0,0.05);
+        }
+        textarea { min-height: 80px; resize: vertical; }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 16px;
+            border-radius: var(--radius);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+            border: none;
+        }
+        .btn-primary { background: var(--primary); color: var(--primary-foreground); }
+        .btn-primary:hover { background: #27272a; }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--foreground); }
+        .btn-outline:hover { background: var(--accent); }
+        .btn-ghost { background: transparent; color: var(--muted-foreground); padding: 6px 10px; }
+        .btn-ghost:hover { background: var(--accent); color: var(--foreground); }
+        .btn-destructive { background: var(--destructive); color: white; }
+        .btn-destructive:hover { background: #dc2626; }
+        .btn-sm { padding: 4px 10px; font-size: 12px; }
+        .btn-group { display: flex; gap: 8px; margin-top: 12px; }
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .logs-container { max-height: 70vh; overflow-y: auto; }
+        .log-entry {
+            background: var(--muted);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin-bottom: 8px;
+            overflow: hidden;
+        }
+        .log-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border);
+            font-size: 12px;
+            background: var(--background);
+        }
+        .log-direction {
+            font-weight: 600;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .log-direction.incoming { background: #dbeafe; color: #1d4ed8; }
+        .log-direction.outgoing { background: #fef3c7; color: #b45309; }
+        .log-direction.proxy_out { background: #f3e8ff; color: #7c3aed; }
+        .log-direction.proxy_in { background: #fce7f3; color: #be185d; }
+        .log-method { font-family: "SF Mono", Monaco, monospace; font-weight: 500; }
+        .log-time { color: var(--muted-foreground); margin-left: auto; }
+        .log-content {
+            padding: 12px;
+            font-family: "SF Mono", Monaco, monospace;
+            font-size: 11px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-all;
+            background: var(--muted);
+        }
+        .tool-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            background: var(--muted);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin-bottom: 8px;
+        }
+        .tool-name { font-weight: 500; font-size: 13px; }
+        .tool-desc { color: var(--muted-foreground); font-size: 12px; }
+        .empty-state { color: var(--muted-foreground); font-size: 13px; padding: 20px; text-align: center; }
+        .form-group { margin-bottom: 12px; }
+        .divider { height: 1px; background: var(--border); margin: 16px 0; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>MCP Toolbelt</h1>
-        <div class="endpoint">
-            MCP Endpoint: <strong>http://127.0.0.1:8765/mcp</strong>
+        <header>
+            <h1>MCP Toolbelt</h1>
+            <p class="subtitle">Debug, inspect, and mock MCP server requests</p>
+        </header>
+
+        <div class="endpoint-bar">
+            <span>Endpoint:</span>
+            <code>http://127.0.0.1:8765/mcp</code>
+            {% if proxy_target %}
+            <span style="margin-left: 16px;">Proxying to:</span>
+            <code>{{ proxy_target }}</code>
+            <span class="badge active">Active</span>
+            {% endif %}
         </div>
 
         <div class="grid">
             <div>
-                <div class="panel">
-                    <h2>Proxy Mode
+                <div class="card">
+                    <div class="section-header">
+                        <h2>Proxy Mode</h2>
                         {% if proxy_target %}
-                        <span class="status active">Active</span>
+                        <span class="badge active">Active</span>
                         {% else %}
-                        <span class="status inactive">Inactive</span>
+                        <span class="badge inactive">Off</span>
                         {% endif %}
-                    </h2>
-                    <p style="color:#888;font-size:0.9em;">Forward requests to another MCP server and trace all calls.</p>
+                    </div>
+                    <p style="color:var(--muted-foreground);font-size:13px;margin-bottom:12px;">
+                        Forward requests to another MCP server and trace all calls.
+                        Or use <code style="background:var(--muted);padding:2px 4px;border-radius:4px;">?proxy=URL</code>
+                    </p>
                     <input type="text" id="proxy-url" placeholder="https://remote-mcp-server.com/mcp" value="{{ proxy_target or '' }}">
-                    <button onclick="setProxy()">Set Proxy Target</button>
-                    <button class="danger" onclick="clearProxy()">Clear</button>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="setProxy()">Set Proxy</button>
+                        <button class="btn btn-outline" onclick="clearProxy()">Clear</button>
+                    </div>
                 </div>
 
-                <div class="panel">
+                <div class="card">
                     <h2>Mock Tools</h2>
-                    <p style="color:#888;font-size:0.9em;">Define custom tools with mocked responses.</p>
+                    <p style="color:var(--muted-foreground);font-size:13px;margin-bottom:16px;">
+                        Define custom tools with mocked responses.
+                    </p>
 
-                    <label>Tool Name</label>
-                    <input type="text" id="tool-name" placeholder="my_tool">
+                    <div class="form-group">
+                        <label>Tool Name</label>
+                        <input type="text" id="tool-name" placeholder="my_tool">
+                    </div>
 
-                    <label>Description</label>
-                    <input type="text" id="tool-desc" placeholder="Description of the tool">
+                    <div class="form-group">
+                        <label>Description</label>
+                        <input type="text" id="tool-desc" placeholder="Description of the tool">
+                    </div>
 
-                    <label>Input Schema (JSON)</label>
-                    <textarea id="tool-schema">{"type": "object", "properties": {"input": {"type": "string"}}, "required": ["input"]}</textarea>
+                    <div class="form-group">
+                        <label>Input Schema (JSON)</label>
+                        <textarea id="tool-schema">{"type": "object", "properties": {"input": {"type": "string"}}, "required": ["input"]}</textarea>
+                    </div>
 
-                    <label>Mock Response (JSON or string)</label>
-                    <textarea id="tool-response">{"result": "mocked!"}</textarea>
+                    <div class="form-group">
+                        <label>Mock Response (JSON)</label>
+                        <textarea id="tool-response">{"result": "mocked!"}</textarea>
+                    </div>
 
-                    <button onclick="saveMockTool()">Save Mock Tool</button>
+                    <button class="btn btn-primary" onclick="saveMockTool()">Save Tool</button>
 
-                    <h2>Existing Mock Tools</h2>
+                    <div class="divider"></div>
+
+                    <h2>Existing Tools</h2>
                     {% for tool in mock_tools %}
                     <div class="tool-item">
-                        <span class="tool-name">{{ tool.name }}</span>
-                        <span style="color:#888;margin-left:10px;">{{ tool.description }}</span>
-                        <button class="danger" style="float:right;padding:4px 8px;" onclick="deleteTool('{{ tool.name }}')">Delete</button>
+                        <div>
+                            <div class="tool-name">{{ tool.name }}</div>
+                            <div class="tool-desc">{{ tool.description }}</div>
+                        </div>
+                        <button class="btn btn-ghost btn-sm" onclick="deleteTool('{{ tool.name }}')">Delete</button>
                     </div>
                     {% else %}
-                    <p style="color:#666;">No mock tools configured.</p>
+                    <div class="empty-state">No mock tools configured</div>
                     {% endfor %}
                 </div>
             </div>
 
-            <div class="panel">
-                <h2>Request Logs <button onclick="refreshLogs()" style="padding:4px 8px;">Refresh</button> <button class="danger" onclick="clearLogs()" style="padding:4px 8px;">Clear</button></h2>
+            <div class="card">
+                <div class="section-header">
+                    <h2>Request Logs</h2>
+                    <div>
+                        <button class="btn btn-ghost btn-sm" onclick="refreshLogs()">Refresh</button>
+                        <button class="btn btn-ghost btn-sm" onclick="clearLogs()">Clear</button>
+                    </div>
+                </div>
                 <div class="logs-container" id="logs">
                     {% for log in logs %}
-                    <div class="log-entry {{ log.direction }}">
-                        <div class="log-meta">
-                            <strong>{{ log.direction }}</strong> | {{ log.method }} | {{ log.timestamp }} | session: {{ log.session_id[:8] if log.session_id else 'N/A' }}...
+                    <div class="log-entry">
+                        <div class="log-header">
+                            <span class="log-direction {{ log.direction }}">{{ log.direction }}</span>
+                            <span class="log-method">{{ log.method }}</span>
+                            <span class="log-time">{{ log.timestamp[11:19] }}</span>
                         </div>
-                        <div class="log-content">{% if log.params %}params: {{ log.params }}{% endif %}
-{% if log.result %}result: {{ log.result }}{% endif %}
-{% if log.error %}error: {{ log.error }}{% endif %}</div>
+                        <div class="log-content">{% if log.params %}<strong>params:</strong> {{ log.params | safe }}{% endif %}
+{% if log.result %}<strong>result:</strong> {{ log.result | safe }}{% endif %}
+{% if log.error %}<strong>error:</strong> {{ log.error | safe }}{% endif %}</div>
                     </div>
                     {% else %}
-                    <p style="color:#666;">No logs yet. Connect an MCP client to see requests.</p>
+                    <div class="empty-state">No logs yet. Connect an MCP client to see requests.</div>
                     {% endfor %}
                 </div>
             </div>
@@ -107,6 +273,21 @@
     </div>
 
     <script>
+        function formatJson(str) {
+            if (!str) return str;
+            try {
+                return JSON.stringify(JSON.parse(str), null, 2);
+            } catch {
+                return str;
+            }
+        }
+
+        document.querySelectorAll('.log-content').forEach(el => {
+            el.innerHTML = el.innerHTML.replace(/(params:|result:|error:)\s*(\{.*\}|\[.*\])/gs, (match, label, json) => {
+                return '<strong>' + label + '</strong> ' + formatJson(json);
+            });
+        });
+
         async function setProxy() {
             const url = document.getElementById('proxy-url').value;
             await fetch('/api/proxy/set', {
@@ -150,9 +331,7 @@
             location.reload();
         }
 
-        async function refreshLogs() {
-            location.reload();
-        }
+        function refreshLogs() { location.reload(); }
 
         async function clearLogs() {
             await fetch('/api/logs/clear', {method: 'POST'});

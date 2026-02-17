@@ -35,7 +35,11 @@ app = FastAPI(title="MCP Toolbelt", lifespan=lifespan)
 
 
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
+async def index(request: Request, proxy: str | None = None):
+    global proxy_target, proxy_session_id
+    if proxy is not None:
+        proxy_target = proxy if proxy else None
+        proxy_session_id = None
     logs = await db.get_logs(100)
     mock_tools = await db.get_mock_tools()
     return templates.TemplateResponse(
