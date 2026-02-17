@@ -1,12 +1,14 @@
-# MCP Toolbelt
+# MCP Debugger
 
 Debug, inspect, and mock MCP servers. Like webhook.site but for MCP.
+
+<img width="1430" height="1098" alt="CleanShot 2026-02-17 at 17 52 46@2x" src="https://github.com/user-attachments/assets/1209b66d-cacd-4db1-9421-e140686b51de" />
 
 ## Quick Start
 
 ```bash
 # Run from git (no install needed)
-uvx --from git+https://github.com/YOURORG/mcp-toolbelt mcp-toolbelt
+uvx --from git+https://github.com/jtgi/mcp-debugger mcp-toolbelt
 
 # Or clone and run
 git clone https://github.com/YOURORG/mcp-toolbelt
