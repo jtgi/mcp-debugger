@@ -9,23 +9,18 @@ import sys
 @click.option("--port", "-p", default=8765, help="Port to run on")
 @click.option("--host", "-h", default="127.0.0.1", help="Host to bind to")
 @click.option("--ngrok", is_flag=True, help="Expose via ngrok tunnel")
-@click.option("--proxy", default=None, help="Proxy all requests to this MCP server URL")
-def main(port: int, host: str, ngrok: bool, proxy: str | None):
+def main(port: int, host: str, ngrok: bool):
     """MCP Toolbelt - Debug, inspect, and mock MCP servers.
 
     Run a local MCP server with request logging, proxy mode, and mock tools.
+    Set proxy dynamically via ?proxy=URL query param or the web UI.
 
     \b
     Examples:
       mcp-toolbelt                    # Run on localhost:8765
       mcp-toolbelt --port 9000        # Run on custom port
       mcp-toolbelt --ngrok            # Expose via ngrok
-      mcp-toolbelt --proxy URL        # Proxy to another MCP server
     """
-    from mcp_toolbelt import app as app_module
-
-    if proxy:
-        app_module.proxy_target = proxy
 
     ngrok_url = None
     if ngrok:
@@ -46,11 +41,10 @@ def main(port: int, host: str, ngrok: bool, proxy: str | None):
     if ngrok_url:
         click.echo(f"  Public:   {ngrok_url}")
         click.echo(f"  MCP:      {ngrok_url}/mcp")
-    if proxy:
-        click.echo(f"  Proxy:    {proxy}")
     click.echo("  ────────────────────────────────────")
     click.echo()
 
+    from mcp_toolbelt import app as app_module
     uvicorn.run(
         app_module.app,
         host=host,
