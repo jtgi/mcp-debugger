@@ -158,6 +158,16 @@
         .empty-state { color: var(--muted-foreground); font-size: 13px; padding: 20px; text-align: center; }
         .form-group { margin-bottom: 12px; }
         .divider { height: 1px; background: var(--border); margin: 16px 0; }
+        .spinner {
+            width: 16px; height: 16px;
+            border: 2px solid var(--border);
+            border-top-color: var(--foreground);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
@@ -246,48 +256,74 @@
 
             <div class="card">
                 <div class="section-header">
-                    <h2>Request Logs</h2>
+                    <h2>Request Logs <span id="live-indicator" class="badge active" style="margin-left:8px;">Live</span></h2>
                     <div>
-                        <button class="btn btn-ghost btn-sm" onclick="refreshLogs()">Refresh</button>
                         <button class="btn btn-ghost btn-sm" onclick="clearLogs()">Clear</button>
                     </div>
                 </div>
                 <div class="logs-container" id="logs">
-                    {% for log in logs %}
-                    <div class="log-entry">
-                        <div class="log-header">
-                            <span class="log-direction {{ log.direction }}">{{ log.direction }}</span>
-                            <span class="log-method">{{ log.method }}</span>
-                            <span class="log-time">{{ log.timestamp[11:19] }}</span>
-                        </div>
-                        <div class="log-content">{% if log.params %}<strong>params:</strong>
-{{ log.params | pretty_json }}{% endif %}{% if log.result %}<strong>result:</strong>
-{{ log.result | pretty_json }}{% endif %}{% if log.error %}<strong>error:</strong>
-{{ log.error | pretty_json }}{% endif %}</div>
+                    <div id="logs-loading" style="display:none;text-align:center;padding:20px;color:var(--muted-foreground);">
+                        <div class="spinner"></div>
+                        Loading...
                     </div>
-                    {% else %}
-                    <div class="empty-state">No logs yet. Connect an MCP client to see requests.</div>
-                    {% endfor %}
+                    <div id="logs-content"></div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        function formatJson(str) {
-            if (!str) return str;
+        function formatJson(obj) {
+            if (obj === null || obj === undefined) return '';
+            if (typeof obj === 'string') {
+                try { obj = JSON.parse(obj); } catch { return obj; }
+            }
+            return JSON.stringify(obj, null, 2);
+        }
+
+        function renderLog(log) {
+            const directionClass = log.direction.replace('_', '-');
+            let content = '';
+            if (log.params) content += '<strong>params:</strong>\n' + formatJson(log.params) + '\n';
+            if (log.result) content += '<strong>result:</strong>\n' + formatJson(log.result) + '\n';
+            if (log.error) content += '<strong>error:</strong>\n' + formatJson(log.error);
+            const time = log.timestamp ? log.timestamp.slice(11, 19) : '';
+            return `
+                <div class="log-entry">
+                    <div class="log-header">
+                        <span class="log-direction ${log.direction}">${log.direction}</span>
+                        <span class="log-method">${log.method}</span>
+                        <span class="log-time">${time}</span>
+                    </div>
+                    <div class="log-content">${content.trim()}</div>
+                </div>
+            `;
+        }
+
+        let lastLogId = 0;
+        async function fetchLogs() {
             try {
-                return JSON.stringify(JSON.parse(str), null, 2);
-            } catch {
-                return str;
+                const resp = await fetch('/api/logs');
+                const logs = await resp.json();
+                const container = document.getElementById('logs-content');
+
+                if (logs.length === 0) {
+                    container.innerHTML = '<div class="empty-state">No logs yet. Connect an MCP client to see requests.</div>';
+                } else {
+                    const newTopId = logs[0]?.id || 0;
+                    if (newTopId !== lastLogId) {
+                        container.innerHTML = logs.map(renderLog).join('');
+                        lastLogId = newTopId;
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to fetch logs:', e);
             }
         }
 
-        document.querySelectorAll('.log-content').forEach(el => {
-            el.innerHTML = el.innerHTML.replace(/(params:|result:|error:)\s*(\{.*\}|\[.*\])/gs, (match, label, json) => {
-                return '<strong>' + label + '</strong> ' + formatJson(json);
-            });
-        });
+        // Initial load and poll every 1s
+        fetchLogs();
+        setInterval(fetchLogs, 1000);
 
         async function setProxy() {
             const url = document.getElementById('proxy-url').value;
@@ -332,11 +368,10 @@
             location.reload();
         }
 
-        function refreshLogs() { location.reload(); }
-
         async function clearLogs() {
             await fetch('/api/logs/clear', {method: 'POST'});
-            location.reload();
+            lastLogId = 0;
+            fetchLogs();
         }
     </script>
 </body>

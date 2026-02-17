@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
 from mcp_toolbelt import db
+from mcp_toolbelt import config as config_module
 
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
@@ -107,6 +108,10 @@ async def set_proxy(request: Request):
     data = await request.json()
     proxy_target = data.get("url")
     proxy_session_id = None  # Reset session when target changes
+    # Save to config
+    cfg = config_module.load_config()
+    cfg["proxy_target"] = proxy_target
+    config_module.save_config(cfg)
     return {"status": "ok", "proxy_target": proxy_target}
 
 
@@ -131,42 +136,60 @@ async def delete_mock_tool(name: str):
 # ============ MCP Server ============
 
 
-async def get_builtin_tools():
-    return [
-        {
-            "name": "echo",
-            "description": "Echo back the input message",
-            "inputSchema": {
-                "type": "object",
-                "properties": {"message": {"type": "string", "description": "Message to echo"}},
-                "required": ["message"],
-            },
-        }
-    ]
+def get_config_tools():
+    """Get tools from config file."""
+    cfg = config_module.load_config()
+    tools = []
+    for t in cfg.get("tools", []):
+        tools.append({
+            "name": t["name"],
+            "description": t.get("description", ""),
+            "inputSchema": t.get("input_schema", {"type": "object", "properties": {}}),
+            "_mock_response": t.get("mock_response"),
+        })
+    return tools
 
 
 async def get_all_tools():
-    tools = await get_builtin_tools()
+    """Get all tools (config + db mock tools)."""
+    tools = get_config_tools()
     mock_tools = await db.get_mock_tools()
     for mt in mock_tools:
         tools.append({
             "name": mt["name"],
             "description": mt["description"],
             "inputSchema": mt["input_schema"],
+            "_mock_response": mt["mock_response"],
         })
-    return tools
+    # Return without internal _mock_response field
+    return [{k: v for k, v in t.items() if not k.startswith("_")} for t in tools]
+
+
+def substitute_template(template: str, arguments: dict) -> str:
+    """Simple template substitution: {{key}} -> arguments[key]."""
+    result = template
+    for key, value in arguments.items():
+        result = result.replace(f"{{{{{key}}}}}", str(value))
+    return result
 
 
 async def handle_tool_call(name: str, arguments: dict) -> dict:
-    if name == "echo":
-        return {"content": [{"type": "text", "text": arguments.get("message", "")}]}
+    # Check config tools first
+    cfg = config_module.load_config()
+    for t in cfg.get("tools", []):
+        if t["name"] == name:
+            response = t.get("mock_response", "")
+            if isinstance(response, str):
+                return {"content": [{"type": "text", "text": substitute_template(response, arguments)}]}
+            return {"content": [{"type": "text", "text": json.dumps(response)}]}
 
+    # Check db mock tools
     mock_tools = await db.get_mock_tools()
     for mt in mock_tools:
         if mt["name"] == name:
             response = mt["mock_response"]
             if isinstance(response, str):
-                return {"content": [{"type": "text", "text": response}]}
+                return {"content": [{"type": "text", "text": substitute_template(response, arguments)}]}
             return {"content": [{"type": "text", "text": json.dumps(response)}]}
 
     raise ValueError(f"Unknown tool: {name}")

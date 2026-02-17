@@ -3,13 +3,15 @@
 import click
 import uvicorn
 import sys
+from pathlib import Path
 
 
 @click.command()
 @click.option("--port", "-p", default=8765, help="Port to run on")
 @click.option("--host", "-h", default="127.0.0.1", help="Host to bind to")
 @click.option("--ngrok", is_flag=True, help="Expose via ngrok tunnel")
-def main(port: int, host: str, ngrok: bool):
+@click.option("--config", "-c", type=click.Path(exists=True), help="Load config from JSON file")
+def main(port: int, host: str, ngrok: bool, config: str | None):
     """MCP Toolbelt - Debug, inspect, and mock MCP servers.
 
     Run a local MCP server with request logging, proxy mode, and mock tools.
@@ -17,10 +19,19 @@ def main(port: int, host: str, ngrok: bool):
 
     \b
     Examples:
-      mcp-toolbelt                    # Run on localhost:8765
-      mcp-toolbelt --port 9000        # Run on custom port
-      mcp-toolbelt --ngrok            # Expose via ngrok
+      mcp-toolbelt                       # Run on localhost:8765
+      mcp-toolbelt --port 9000           # Custom port
+      mcp-toolbelt --ngrok               # Expose via ngrok
+      mcp-toolbelt --config config.json  # Load settings from file
     """
+    from mcp_toolbelt import config as config_module
+    from mcp_toolbelt import app as app_module
+
+    # Load config if provided
+    if config:
+        cfg = config_module.load_config(Path(config))
+        if cfg.get("proxy_target"):
+            app_module.proxy_target = cfg["proxy_target"]
 
     ngrok_url = None
     if ngrok:
@@ -44,7 +55,6 @@ def main(port: int, host: str, ngrok: bool):
     click.echo("  ────────────────────────────────────")
     click.echo()
 
-    from mcp_toolbelt import app as app_module
     uvicorn.run(
         app_module.app,
         host=host,
