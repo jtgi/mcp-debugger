@@ -2,8 +2,10 @@
 
 import json
 import asyncio
+import sys
 from contextlib import asynccontextmanager
 from typing import Any
+from datetime import datetime
 
 import httpx
 from fastapi import FastAPI, Request, HTTPException
@@ -15,6 +17,40 @@ from pathlib import Path
 from mcp_toolbelt import db
 
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
+
+
+def pretty_json(value):
+    """Jinja filter to pretty-print JSON."""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError:
+            return value
+    return json.dumps(value, indent=2)
+
+
+templates.env.filters["pretty_json"] = pretty_json
+
+
+def log_to_console(direction: str, method: str, data: dict | None):
+    """Log request/response to stdout."""
+    timestamp = datetime.utcnow().strftime("%H:%M:%S")
+    colors = {
+        "incoming": "\033[94m",  # blue
+        "outgoing": "\033[93m",  # yellow
+        "proxy_out": "\033[95m",  # purple
+        "proxy_in": "\033[96m",  # cyan
+    }
+    reset = "\033[0m"
+    color = colors.get(direction, "")
+
+    prefix = f"{color}[{timestamp}] {direction.upper():10}{reset} {method}"
+    if data:
+        print(f"{prefix}\n{json.dumps(data, indent=2)}", file=sys.stderr)
+    else:
+        print(prefix, file=sys.stderr)
 
 # In-memory state
 sessions: dict[str, dict] = {}
@@ -116,7 +152,7 @@ async def get_all_tools():
         tools.append({
             "name": mt["name"],
             "description": mt["description"],
-            "inputSchema": json.loads(mt["input_schema"]),
+            "inputSchema": mt["input_schema"],
         })
     return tools
 
@@ -128,7 +164,7 @@ async def handle_tool_call(name: str, arguments: dict) -> dict:
     mock_tools = await db.get_mock_tools()
     for mt in mock_tools:
         if mt["name"] == name:
-            response = json.loads(mt["mock_response"])
+            response = mt["mock_response"]
             if isinstance(response, str):
                 return {"content": [{"type": "text", "text": response}]}
             return {"content": [{"type": "text", "text": json.dumps(response)}]}
@@ -186,6 +222,7 @@ async def proxy_request(method: str, params: dict, req_id: Any, session_id: str)
         payload = {"jsonrpc": "2.0", "id": req_id, "method": method, "params": params}
 
         await db.log_request(session_id, "proxy_out", method, params)
+        log_to_console("proxy_out", method, params)
 
         resp = await client.post(proxy_target, json=payload, headers=headers)
         text = resp.text
@@ -196,10 +233,12 @@ async def proxy_request(method: str, params: dict, req_id: Any, session_id: str)
                 if line.startswith("data:"):
                     data = json.loads(line[5:].strip())
                     await db.log_request(session_id, "proxy_in", method, result=data.get("result"), error=data.get("error"))
+                    log_to_console("proxy_in", method, data.get("result") or data.get("error"))
                     return data
         else:
             data = resp.json()
             await db.log_request(session_id, "proxy_in", method, result=data.get("result"), error=data.get("error"))
+            log_to_console("proxy_in", method, data.get("result") or data.get("error"))
             return data
 
     return make_response(req_id, error={"code": -32600, "message": "Proxy failed"})
@@ -211,6 +250,7 @@ async def handle_mcp_request(request_data: dict, session_id: str) -> dict | None
     req_id = request_data.get("id")
 
     await db.log_request(session_id, "incoming", method, params)
+    log_to_console("incoming", method, params)
 
     # Notifications have no id
     if req_id is None:
@@ -246,6 +286,7 @@ async def handle_mcp_request(request_data: dict, session_id: str) -> dict | None
 
     response = make_response(req_id, result, error)
     await db.log_request(session_id, "outgoing", method, result=result, error=error)
+    log_to_console("outgoing", method, result or error)
     return response
 
 
@@ -285,10 +326,6 @@ async def mcp_endpoint(request: Request):
     return JSONResponse(response, headers={"mcp-session-id": session_id})
 
 
-def main():
+if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=8765)
-
-
-if __name__ == "__main__":
-    main()

@@ -8,4 +8,5 @@ build/
 .venv/
 venv/
 *.db
+*.json
 .DS_Store

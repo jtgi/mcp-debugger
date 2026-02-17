@@ -1,39 +1,30 @@
-"""SQLite database for request logging and tool configurations."""
+"""JSON flat file storage for request logging and tool configurations."""
 
-import aiosqlite
 import json
 from datetime import datetime
 from pathlib import Path
+import asyncio
 
-DB_PATH = Path("mcp_toolbelt.db")
+DATA_FILE = Path("mcp_toolbelt_data.json")
+_lock = asyncio.Lock()
+
+
+def _load_data() -> dict:
+    if DATA_FILE.exists():
+        try:
+            return json.loads(DATA_FILE.read_text())
+        except json.JSONDecodeError:
+            pass
+    return {"logs": [], "mock_tools": []}
+
+
+def _save_data(data: dict):
+    DATA_FILE.write_text(json.dumps(data, indent=2))
 
 
 async def init_db():
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("""
-            CREATE TABLE IF NOT EXISTS request_logs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                session_id TEXT,
-                direction TEXT,  -- 'incoming' or 'outgoing'
-                method TEXT,
-                params TEXT,
-                result TEXT,
-                error TEXT,
-                timestamp TEXT
-            )
-        """)
-        await db.execute("""
-            CREATE TABLE IF NOT EXISTS mock_tools (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT UNIQUE,
-                description TEXT,
-                input_schema TEXT,
-                mock_response TEXT,
-                created_at TEXT,
-                updated_at TEXT
-            )
-        """)
-        await db.commit()
+    if not DATA_FILE.exists():
+        _save_data({"logs": [], "mock_tools": []})
 
 
 async def log_request(
@@ -44,68 +35,72 @@ async def log_request(
     result: dict | None = None,
     error: dict | None = None,
 ):
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute(
-            """
-            INSERT INTO request_logs (session_id, direction, method, params, result, error, timestamp)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                session_id,
-                direction,
-                method,
-                json.dumps(params) if params else None,
-                json.dumps(result) if result else None,
-                json.dumps(error) if error else None,
-                datetime.utcnow().isoformat(),
-            ),
-        )
-        await db.commit()
+    async with _lock:
+        data = _load_data()
+        log_id = len(data["logs"]) + 1
+        data["logs"].append({
+            "id": log_id,
+            "session_id": session_id,
+            "direction": direction,
+            "method": method,
+            "params": params,
+            "result": result,
+            "error": error,
+            "timestamp": datetime.utcnow().isoformat(),
+        })
+        # Keep only last 500 logs
+        data["logs"] = data["logs"][-500:]
+        _save_data(data)
 
 
 async def get_logs(limit: int = 100):
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        cursor = await db.execute(
-            "SELECT * FROM request_logs ORDER BY id DESC LIMIT ?", (limit,)
-        )
-        rows = await cursor.fetchall()
-        return [dict(row) for row in rows]
+    async with _lock:
+        data = _load_data()
+        logs = data["logs"][-limit:]
+        logs.reverse()
+        return logs
 
 
 async def clear_logs():
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("DELETE FROM request_logs")
-        await db.commit()
+    async with _lock:
+        data = _load_data()
+        data["logs"] = []
+        _save_data(data)
 
 
 async def save_mock_tool(name: str, description: str, input_schema: dict, mock_response: dict):
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with _lock:
+        data = _load_data()
         now = datetime.utcnow().isoformat()
-        await db.execute(
-            """
-            INSERT INTO mock_tools (name, description, input_schema, mock_response, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(name) DO UPDATE SET
-                description = excluded.description,
-                input_schema = excluded.input_schema,
-                mock_response = excluded.mock_response,
-                updated_at = excluded.updated_at
-            """,
-            (name, description, json.dumps(input_schema), json.dumps(mock_response), now, now),
-        )
-        await db.commit()
+        # Update existing or add new
+        for tool in data["mock_tools"]:
+            if tool["name"] == name:
+                tool["description"] = description
+                tool["input_schema"] = input_schema
+                tool["mock_response"] = mock_response
+                tool["updated_at"] = now
+                _save_data(data)
+                return
+        # Add new
+        data["mock_tools"].append({
+            "name": name,
+            "description": description,
+            "input_schema": input_schema,
+            "mock_response": mock_response,
+            "created_at": now,
+            "updated_at": now,
+        })
+        _save_data(data)
 
 
 async def get_mock_tools():
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        cursor = await db.execute("SELECT * FROM mock_tools ORDER BY name")
-        rows = await cursor.fetchall()
-        return [dict(row) for row in rows]
+    async with _lock:
+        data = _load_data()
+        return sorted(data["mock_tools"], key=lambda t: t["name"])
 
 
 async def delete_mock_tool(name: str):
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("DELETE FROM mock_tools WHERE name = ?", (name,))
-        await db.commit()
+    async with _lock:
+        data = _load_data()
+        data["mock_tools"] = [t for t in data["mock_tools"] if t["name"] != name]
+        _save_data(data)

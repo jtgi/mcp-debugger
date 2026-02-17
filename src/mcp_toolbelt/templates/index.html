@@ -260,9 +260,10 @@
                             <span class="log-method">{{ log.method }}</span>
                             <span class="log-time">{{ log.timestamp[11:19] }}</span>
                         </div>
-                        <div class="log-content">{% if log.params %}<strong>params:</strong> {{ log.params | safe }}{% endif %}
-{% if log.result %}<strong>result:</strong> {{ log.result | safe }}{% endif %}
-{% if log.error %}<strong>error:</strong> {{ log.error | safe }}{% endif %}</div>
+                        <div class="log-content">{% if log.params %}<strong>params:</strong>
+{{ log.params | pretty_json }}{% endif %}{% if log.result %}<strong>result:</strong>
+{{ log.result | pretty_json }}{% endif %}{% if log.error %}<strong>error:</strong>
+{{ log.error | pretty_json }}{% endif %}</div>
                     </div>
                     {% else %}
                     <div class="empty-state">No logs yet. Connect an MCP client to see requests.</div>
