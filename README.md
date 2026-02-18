@@ -19,9 +19,69 @@ uv run mcp-debugger
 ## Usage
 
 ```bash
-mcp-debugger                # Run on localhost:8765
-mcp-debugger --port 9000    # Custom port
-mcp-debugger --ngrok        # Expose via ngrok tunnel
+mcp-debugger                                    # Run on localhost:8765
+mcp-debugger --port 9000                        # Custom port
+mcp-debugger --ngrok                            # Expose via ngrok tunnel
+mcp-debugger --ngrok-domain your.ngrok-free.app # Use a custom ngrok domain
+NGROK_DOMAIN=your.ngrok-free.app mcp-debugger   # Or via env var
+```
+
+### Example
+
+```
+$ NGROK_DOMAIN="slightly-divine-dove.ngrok-free.app" uvx --from git+https://github.com/jtgi/mcp-debugger mcp-debugger
+
+  MCP Toolbelt
+  ────────────────────────────────────
+  Local:    http://127.0.0.1:8765
+  MCP:      http://127.0.0.1:8765/mcp
+  Public:   https://slightly-divine-dove.ngrok-free.app
+  MCP:      https://slightly-divine-dove.ngrok-free.app/mcp
+  ────────────────────────────────────
+
+[15:24:01] INCOMING   initialize
+{
+  "protocolVersion": "2025-03-26",
+  "capabilities": {},
+  "clientInfo": {
+    "name": "mcp",
+    "version": "0.1.0"
+  }
+}
+[15:24:01] OUTGOING   initialize
+{
+  "protocolVersion": "2024-11-05",
+  "capabilities": {
+    "tools": {}
+  },
+  "serverInfo": {
+    "name": "mcp-toolbelt",
+    "version": "0.1.0"
+  }
+}
+[15:24:02] INCOMING   notifications/initialized
+[15:24:02] INCOMING   tools/list
+[15:24:02] OUTGOING   tools/list
+{
+  "tools": [
+    {
+      "name": "echo",
+      "description": "Echo back the input message",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Message to echo"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      }
+    }
+  ]
+}
 ```
 
 ## Features
