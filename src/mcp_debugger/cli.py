@@ -12,8 +12,9 @@ from pathlib import Path
 @click.option("--host", "-h", default="127.0.0.1", help="Host to bind to")
 @click.option("--ngrok", is_flag=True, help="Expose via ngrok tunnel")
 @click.option("--ngrok-domain", default=None, help="Custom ngrok domain (or set NGROK_DOMAIN env var)")
+@click.option("--proxy", default=None, help="Proxy requests to an upstream MCP server")
 @click.option("--config", "-c", type=click.Path(exists=True), help="Load config from JSON file")
-def main(port: int, host: str, ngrok: bool, ngrok_domain: str | None, config: str | None):
+def main(port: int, host: str, ngrok: bool, ngrok_domain: str | None, proxy: str | None, config: str | None):
     """MCP Toolbelt - Debug, inspect, and mock MCP servers.
 
     Run a local MCP server with request logging, proxy mode, and mock tools.
@@ -34,6 +35,9 @@ def main(port: int, host: str, ngrok: bool, ngrok_domain: str | None, config: st
         cfg = config_module.load_config(Path(config))
         if cfg.get("proxy_target"):
             app_module.proxy_target = cfg["proxy_target"]
+
+    if proxy:
+        app_module.proxy_target = proxy
 
     domain = ngrok_domain or os.environ.get("NGROK_DOMAIN")
 
@@ -59,6 +63,8 @@ def main(port: int, host: str, ngrok: bool, ngrok_domain: str | None, config: st
     if ngrok_url:
         click.echo(f"  Public:   {ngrok_url}")
         click.echo(f"  MCP:      {ngrok_url}/mcp")
+    if app_module.proxy_target:
+        click.echo(f"  Proxy:    {app_module.proxy_target}")
     click.echo("  ────────────────────────────────────")
     click.echo()
 

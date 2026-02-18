@@ -21,6 +21,7 @@ uv run mcp-debugger
 ```bash
 mcp-debugger                                    # Run on localhost:8765
 mcp-debugger --port 9000                        # Custom port
+mcp-debugger --proxy https://your-mcp-server/mcp # Proxy to upstream server
 mcp-debugger --ngrok                            # Expose via ngrok tunnel
 mcp-debugger --ngrok-domain your.ngrok-free.app # Use a custom ngrok domain
 NGROK_DOMAIN=your.ngrok-free.app mcp-debugger   # Or via env var
