@@ -1,4 +1,4 @@
-# MCP Toolbelt
+# MCP Debugger
 
 Debug, inspect, and mock MCP servers. Like webhook.site but for MCP.
 
@@ -6,20 +6,20 @@ Debug, inspect, and mock MCP servers. Like webhook.site but for MCP.
 
 ```bash
 # Run from git (no install needed)
-uvx --from git+https://github.com/YOURORG/mcp-toolbelt mcp-toolbelt
+uvx --from git+https://github.com/jtgi/mcp-debugger mcp-debugger
 
 # Or clone and run
-git clone https://github.com/YOURORG/mcp-toolbelt
-cd mcp-toolbelt
-uv run mcp-toolbelt
+git clone https://github.com/jtgi/mcp-debugger
+cd mcp-debugger
+uv run mcp-debugger
 ```
 
 ## Usage
 
 ```bash
-mcp-toolbelt                # Run on localhost:8765
-mcp-toolbelt --port 9000    # Custom port
-mcp-toolbelt --ngrok        # Expose via ngrok tunnel
+mcp-debugger                # Run on localhost:8765
+mcp-debugger --port 9000    # Custom port
+mcp-debugger --ngrok        # Expose via ngrok tunnel
 ```
 
 ## Features

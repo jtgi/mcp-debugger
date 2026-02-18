@@ -14,8 +14,8 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
-from mcp_toolbelt import db
-from mcp_toolbelt import config as config_module
+from mcp_debugger import db
+from mcp_debugger import config as config_module
 
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 

@@ -1,5 +1,5 @@
 [project]
-name = "mcp-toolbelt"
+name = "mcp-debugger"
 version = "0.1.0"
 description = "MCP debugging and inspection tool - like webhook.site for MCP"
 requires-python = ">=3.11"
@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
-mcp-toolbelt = "mcp_toolbelt.cli:main"
+mcp-debugger = "mcp_debugger.cli:main"
 
 [build-system]
 requires = ["hatchling"]

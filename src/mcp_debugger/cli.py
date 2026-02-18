@@ -24,8 +24,8 @@ def main(port: int, host: str, ngrok: bool, config: str | None):
       mcp-toolbelt --ngrok               # Expose via ngrok
       mcp-toolbelt --config config.json  # Load settings from file
     """
-    from mcp_toolbelt import config as config_module
-    from mcp_toolbelt import app as app_module
+    from mcp_debugger import config as config_module
+    from mcp_debugger import app as app_module
 
     # Load config if provided
     if config:
