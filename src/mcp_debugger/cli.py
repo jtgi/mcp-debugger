@@ -1,5 +1,6 @@
 """CLI for MCP Toolbelt."""
 
+import os
 import click
 import uvicorn
 import sys
@@ -10,8 +11,9 @@ from pathlib import Path
 @click.option("--port", "-p", default=8765, help="Port to run on")
 @click.option("--host", "-h", default="127.0.0.1", help="Host to bind to")
 @click.option("--ngrok", is_flag=True, help="Expose via ngrok tunnel")
+@click.option("--ngrok-domain", default=None, help="Custom ngrok domain (or set NGROK_DOMAIN env var)")
 @click.option("--config", "-c", type=click.Path(exists=True), help="Load config from JSON file")
-def main(port: int, host: str, ngrok: bool, config: str | None):
+def main(port: int, host: str, ngrok: bool, ngrok_domain: str | None, config: str | None):
     """MCP Toolbelt - Debug, inspect, and mock MCP servers.
 
     Run a local MCP server with request logging, proxy mode, and mock tools.
@@ -33,11 +35,16 @@ def main(port: int, host: str, ngrok: bool, config: str | None):
         if cfg.get("proxy_target"):
             app_module.proxy_target = cfg["proxy_target"]
 
+    domain = ngrok_domain or os.environ.get("NGROK_DOMAIN")
+
     ngrok_url = None
-    if ngrok:
+    if ngrok or domain:
         try:
             from pyngrok import ngrok as pyngrok
-            tunnel = pyngrok.connect(port, bind_tls=True)
+            kwargs = {"bind_tls": True}
+            if domain:
+                kwargs["domain"] = domain
+            tunnel = pyngrok.connect(port, **kwargs)
             ngrok_url = tunnel.public_url
         except Exception as e:
             click.echo(f"Failed to start ngrok: {e}", err=True)
