@@ -30,7 +30,8 @@ NGROK_DOMAIN=your.ngrok-free.app mcp-debugger   # Or via env var
 ### Example
 
 ```
-$ NGROK_DOMAIN="slightly-divine-dove.ngrok-free.app" uvx --from git+https://github.com/jtgi/mcp-debugger mcp-debugger
+$ export NGROK_DOMAIN="slightly-divine-dove.ngrok-free.app"
+$ uvx --from git+https://github.com/jtgi/mcp-debugger mcp-debugger
 
   MCP Toolbelt
   ────────────────────────────────────
@@ -92,6 +93,7 @@ All MCP requests and responses are logged and visible in the web UI.
 
 ### 2. Proxy Mode
 Forward requests to an upstream MCP server while tracing all traffic.
+
 Set dynamically via query param:
 ```
 http://localhost:8765/?proxy=https://your-mcp-server.com/mcp
@@ -106,7 +108,3 @@ Define custom tools with mocked responses via the web UI. Useful for testing MCP
 - **Web UI**: http://localhost:8765/
 - **MCP**: http://localhost:8765/mcp
 
-## Requirements
-
-- Python 3.11+
-- ngrok (optional, for `--ngrok` flag)
